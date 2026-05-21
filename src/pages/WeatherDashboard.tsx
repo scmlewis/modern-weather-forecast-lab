@@ -122,7 +122,10 @@ export function WeatherDashboard() {
         {!loading && weather && (
           <>
             <div className="grid gap-5 lg:grid-cols-[1.05fr_1.6fr]">
-              <CurrentWeatherCard weather={weather.current} />
+              <CurrentWeatherCard
+                weather={weather.current}
+                precipitationChance={weather.hourly[0]?.precipitationChance}
+              />
               <ForecastDetails hourly={weather.hourly} weekly={weather.daily} />
             </div>
 
