@@ -50,16 +50,25 @@ export function CurrentWeatherCard({ weather, precipitationChance }: CurrentWeat
 
       <div className="mt-8 grid gap-6 md:grid-cols-[1.05fr_1fr] md:items-start">
         <div className="space-y-6">
-          <p className="text-7xl font-black leading-none text-slate-950 dark:text-white sm:text-8xl">
-            {roundTemp(weather.temperature)}
-          </p>
+          <div className="flex items-start justify-between gap-4 md:block">
+            <p className="text-7xl font-black leading-none text-slate-950 dark:text-white sm:text-8xl">
+              {roundTemp(weather.temperature)}
+            </p>
+            <div
+              aria-label={weather.condition.description}
+              className="flex items-center justify-end text-6xl drop-shadow-lg md:hidden"
+              role="img"
+            >
+              {weather.condition.icon}
+            </div>
+          </div>
           <p className="mt-4 text-sm font-medium text-slate-700 dark:text-slate-300">
             Feels like {roundTemp(weather.feelsLike)}
           </p>
         </div>
         <div
           aria-label={weather.condition.description}
-          className="flex items-center justify-end text-7xl drop-shadow-lg"
+          className="hidden items-center justify-end text-7xl drop-shadow-lg md:flex"
           role="img"
         >
           {weather.condition.icon}

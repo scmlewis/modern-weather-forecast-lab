@@ -25,6 +25,32 @@ const getErrorMessage = (error: unknown) => {
   return 'Something went wrong while loading weather data.';
 };
 
+const getWeatherHeadline = (condition?: string) => {
+  const normalized = condition?.toLowerCase() ?? '';
+
+  if (normalized.includes('thunder')) {
+    return 'Storm energy in the air.';
+  }
+
+  if (normalized.includes('rain') || normalized.includes('drizzle')) {
+    return 'Rain on the way, stay cozy.';
+  }
+
+  if (normalized.includes('snow')) {
+    return 'Snowfall ahead, layer up.';
+  }
+
+  if (normalized.includes('mist') || normalized.includes('fog') || normalized.includes('haze')) {
+    return 'Low visibility, take it slow.';
+  }
+
+  if (normalized.includes('cloud')) {
+    return 'Soft light, steady skies.';
+  }
+
+  return 'Bright skies, clear plans.';
+};
+
 export function WeatherDashboard() {
   const [weather, setWeather] = useState<WeatherBundle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,6 +62,11 @@ export function WeatherDashboard() {
 
   const gradient = useMemo(
     () => getWeatherGradient(weatherCondition),
+    [weatherCondition],
+  );
+
+  const headline = useMemo(
+    () => getWeatherHeadline(weatherCondition),
     [weatherCondition],
   );
 
@@ -95,7 +126,7 @@ export function WeatherDashboard() {
               Open-Meteo Dashboard
             </p>
             <h1 className="mt-2 text-4xl font-black tracking-normal text-white sm:text-5xl">
-              Weather, clearly.
+              {headline}
             </h1>
           </div>
           <ThemeToggle isDark={isDark} onToggle={toggleTheme} />

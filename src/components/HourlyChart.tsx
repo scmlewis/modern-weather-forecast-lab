@@ -15,7 +15,8 @@ interface HourlyChartProps {
 }
 
 export function HourlyChart({ hourly }: HourlyChartProps) {
-  const chartData = hourly.slice(0, 10).map((point) => ({
+  const hoursToShow = 30;
+  const chartData = hourly.slice(0, hoursToShow).map((point) => ({
     time: formatHour(point.time),
     temp: Math.round(point.temperature),
     feels: Math.round(point.feelsLike),
@@ -26,7 +27,7 @@ export function HourlyChart({ hourly }: HourlyChartProps) {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-950 dark:text-white">Hourly Temperature</h2>
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-          Next 30 hrs
+          Next {hoursToShow} hrs
         </span>
       </div>
       <div className="h-72 w-full">
@@ -39,7 +40,12 @@ export function HourlyChart({ hourly }: HourlyChartProps) {
               </linearGradient>
             </defs>
             <CartesianGrid stroke="rgba(148, 163, 184, 0.25)" strokeDasharray="4 4" />
-            <XAxis dataKey="time" tick={{ fill: 'currentColor', fontSize: 12 }} tickLine={false} />
+            <XAxis
+              dataKey="time"
+              tick={{ fill: 'currentColor', fontSize: 12 }}
+              tickLine={false}
+              interval={2}
+            />
             <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} tickLine={false} unit="°" />
             <Tooltip
               contentStyle={{
