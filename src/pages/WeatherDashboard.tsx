@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Droplets, ThermometerSun, Wind } from 'lucide-react';
 import { AnimatedWeatherBackground } from '../components/AnimatedWeatherBackground';
 import { CurrentWeatherCard } from '../components/CurrentWeatherCard';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ForecastDetails } from '../components/ForecastDetails';
 import { HourlyChart } from '../components/HourlyChart';
 import { LoadingState } from '../components/LoadingState';
-import { MetricCard } from '../components/MetricCard';
 import { RecentSearches } from '../components/RecentSearches';
 import { SearchBar } from '../components/SearchBar';
 import { ThemeToggle } from '../components/ThemeToggle';
@@ -15,7 +13,6 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { getWeatherByCity, getWeatherByCoords } from '../services/weatherService';
 import type { WeatherBundle } from '../types/weather';
-import { formatSpeed, roundTemp } from '../utils/format';
 import { getWeatherGradient } from '../utils/weatherTheme';
 
 const DEFAULT_CITY = 'London';
@@ -110,6 +107,7 @@ export function WeatherDashboard() {
             locating={isLocating}
             onLocate={loadCurrentLocation}
             onSearch={loadCityWeather}
+            suggestions={recentSearches}
           />
           <div className="mt-4">
             <RecentSearches onSelect={loadCityWeather} searches={recentSearches} />
@@ -125,26 +123,7 @@ export function WeatherDashboard() {
           <>
             <div className="grid gap-5 lg:grid-cols-[1.05fr_1.6fr]">
               <CurrentWeatherCard weather={weather.current} />
-              <div className="grid gap-5">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <MetricCard
-                    icon={Droplets}
-                    label="Humidity"
-                    value={`${weather.current.humidity}%`}
-                  />
-                  <MetricCard
-                    icon={Wind}
-                    label="Wind Speed"
-                    value={formatSpeed(weather.current.windSpeed)}
-                  />
-                  <MetricCard
-                    icon={ThermometerSun}
-                    label="Feels Like"
-                    value={roundTemp(weather.current.feelsLike)}
-                  />
-                </div>
-                <ForecastDetails hourly={weather.hourly} weekly={weather.daily} />
-              </div>
+              <ForecastDetails hourly={weather.hourly} weekly={weather.daily} />
             </div>
 
             <HourlyChart hourly={weather.hourly} />

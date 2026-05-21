@@ -60,7 +60,7 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
       </div>
 
       {mode === 'today' ? (
-        <div className="mt-4 grid gap-2">
+        <div className="mt-4 grid gap-3 sm:gap-2">
           <div className="hidden grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] px-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid">
             <span>Time</span>
             <span>Sky</span>
@@ -70,40 +70,47 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
           </div>
           {hourlyRows.map((point, index) => (
             <article
-              className="grid gap-3 rounded-2xl bg-white/30 p-4 transition hover:-translate-y-0.5 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15 sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center"
+              className="flex flex-col gap-4 rounded-2xl bg-white/30 p-4 transition hover:-translate-y-0.5 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15 sm:grid sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center"
               key={point.time}
             >
-              <div>
-                <p className="text-sm font-black text-slate-950 dark:text-white">
-                  {index === 0 ? 'Now' : formatHour(point.time)}
-                </p>
-                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                  {titleCase(point.condition.description)}
-                </p>
+              <div className="flex items-start justify-between gap-3 sm:block">
+                <div>
+                  <p className="text-sm font-black text-slate-950 dark:text-white">
+                    {index === 0 ? 'Now' : formatHour(point.time)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                    {titleCase(point.condition.description)}
+                  </p>
+                </div>
+                <div className="text-3xl sm:hidden" role="img" aria-label={point.condition.description}>
+                  {point.condition.icon}
+                </div>
               </div>
-              <div className="text-3xl" role="img" aria-label={point.condition.description}>
+              <div className="hidden text-3xl sm:block" role="img" aria-label={point.condition.description}>
                 {point.condition.icon}
               </div>
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
-                <Thermometer className="h-4 w-4 text-sky-600 dark:text-sky-300" />
-                {roundTemp(point.temperature)}
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  feels {roundTemp(point.feelsLike)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
-                <CloudRain className="h-4 w-4 text-sky-600 dark:text-sky-300" />
-                {point.precipitationChance}%
-              </div>
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
-                <Wind className="h-4 w-4 text-sky-600 dark:text-sky-300" />
-                {point.windSpeed.toFixed(1)} m/s
+              <div className="flex flex-wrap items-center gap-4 text-xs sm:contents">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                  <Thermometer className="h-4 w-4 text-sky-600 dark:text-sky-300" />
+                  {roundTemp(point.temperature)}
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    feels {roundTemp(point.feelsLike)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                  <CloudRain className="h-4 w-4 text-sky-600 dark:text-sky-300" />
+                  {point.precipitationChance}%
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                  <Wind className="h-4 w-4 text-sky-600 dark:text-sky-300" />
+                  {point.windSpeed.toFixed(1)} m/s
+                </div>
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <div className="mt-4 grid gap-2">
+        <div className="mt-4 grid gap-3 sm:gap-2">
           <div className="hidden grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] px-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid">
             <span>Day</span>
             <span>Sky</span>
@@ -113,30 +120,37 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
           </div>
           {weeklyRows.map((day, index) => (
             <article
-              className="grid gap-3 rounded-2xl bg-white/30 p-4 transition hover:-translate-y-0.5 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15 sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center"
+              className="flex flex-col gap-4 rounded-2xl bg-white/30 p-4 transition hover:-translate-y-0.5 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15 sm:grid sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center"
               key={day.date}
             >
-              <div>
-                <p className="text-sm font-black text-slate-950 dark:text-white">
-                  {dayLabel(day.date, index)}
-                </p>
-                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                  {formatDay(day.date)}
-                </p>
+              <div className="flex items-start justify-between gap-3 sm:block">
+                <div>
+                  <p className="text-sm font-black text-slate-950 dark:text-white">
+                    {dayLabel(day.date, index)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                    {formatDay(day.date)}
+                  </p>
+                </div>
+                <div className="text-3xl sm:hidden" role="img" aria-label={day.condition.description}>
+                  {day.condition.icon}
+                </div>
               </div>
-              <div className="text-3xl" role="img" aria-label={day.condition.description}>
+              <div className="hidden text-3xl sm:block" role="img" aria-label={day.condition.description}>
                 {day.condition.icon}
               </div>
-              <p className="text-sm font-black text-slate-950 dark:text-white">
-                {roundTemp(day.min)} / {roundTemp(day.max)}
-              </p>
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
-                <CloudRain className="h-4 w-4 text-sky-600 dark:text-sky-300" />
-                {day.precipitationSum.toFixed(1)} mm
-              </div>
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
-                <Wind className="h-4 w-4 text-sky-600 dark:text-sky-300" />
-                {day.maxWindSpeed.toFixed(1)} m/s
+              <div className="flex flex-wrap items-center gap-4 text-xs sm:contents">
+                <p className="text-sm font-black text-slate-950 dark:text-white whitespace-nowrap">
+                  {roundTemp(day.min)} / {roundTemp(day.max)}
+                </p>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                  <CloudRain className="h-4 w-4 text-sky-600 dark:text-sky-300" />
+                  {day.precipitationSum.toFixed(1)} mm
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                  <Wind className="h-4 w-4 text-sky-600 dark:text-sky-300" />
+                  {day.maxWindSpeed.toFixed(1)} m/s
+                </div>
               </div>
             </article>
           ))}
