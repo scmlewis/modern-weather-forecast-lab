@@ -1,5 +1,5 @@
 import { CalendarDays, CloudRain, Clock3, Thermometer, Wind } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { DailyForecast, ForecastPoint } from '../types/weather';
 import { formatDay, formatHour, roundTemp, titleCase } from '../utils/format';
 
@@ -24,9 +24,6 @@ const dayLabel = (date: string, index: number) => {
 
 export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
   const [mode, setMode] = useState<ForecastMode>('today');
-
-  const hourlyRows = useMemo(() => hourly.slice(0, 8), [hourly]);
-  const weeklyRows = useMemo(() => weekly.slice(0, 7), [weekly]);
 
   return (
     <section className="glass-card overflow-hidden p-5 sm:p-6">
@@ -68,7 +65,7 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
             <span>Rain</span>
             <span>Wind</span>
           </div>
-          {hourlyRows.map((point, index) => (
+          {hourly.map((point, index) => (
             <article
               className="flex flex-col gap-4 rounded-2xl bg-white/30 p-4 transition hover:-translate-y-0.5 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15 sm:grid sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center"
               key={point.time}
@@ -118,7 +115,7 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
             <span>Rain</span>
             <span>Wind</span>
           </div>
-          {weeklyRows.map((day, index) => (
+          {weekly.map((day, index) => (
             <article
               className="flex flex-col gap-4 rounded-2xl bg-white/30 p-4 transition hover:-translate-y-0.5 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15 sm:grid sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center"
               key={day.date}

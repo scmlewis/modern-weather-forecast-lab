@@ -51,6 +51,18 @@ export interface WeatherBundle {
   daily: DailyForecast[];
 }
 
+export interface LocationSuggestion {
+  id: number;
+  name: string;
+  admin1?: string;
+  country?: string;
+  countryCode?: string;
+  latitude: number;
+  longitude: number;
+  timezone?: string;
+  label: string;
+}
+
 export interface OpenMeteoLocation {
   id: number;
   name: string;

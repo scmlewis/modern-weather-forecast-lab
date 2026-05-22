@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useMemo } from 'react';
 import type { ForecastPoint } from '../types/weather';
 import { formatHour } from '../utils/format';
 
@@ -15,12 +16,16 @@ interface HourlyChartProps {
 }
 
 export function HourlyChart({ hourly }: HourlyChartProps) {
-  const hoursToShow = 30;
-  const chartData = hourly.slice(0, hoursToShow).map((point) => ({
-    time: formatHour(point.time),
-    temp: Math.round(point.temperature),
-    feels: Math.round(point.feelsLike),
-  }));
+  const hoursToShow = hourly.length;
+  const chartData = useMemo(
+    () =>
+      hourly.map((point) => ({
+        time: formatHour(point.time),
+        temp: Math.round(point.temperature),
+        feels: Math.round(point.feelsLike),
+      })),
+    [hourly],
+  );
 
   return (
     <section className="glass-card p-5 sm:p-6">

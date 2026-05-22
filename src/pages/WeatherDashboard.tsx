@@ -1,21 +1,32 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { AnimatedWeatherBackground } from '../components/AnimatedWeatherBackground';
 import { CurrentWeatherCard } from '../components/CurrentWeatherCard';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { ForecastDetails } from '../components/ForecastDetails';
-import { HourlyChart } from '../components/HourlyChart';
 import { LoadingState } from '../components/LoadingState';
 import { RecentSearches } from '../components/RecentSearches';
 import { SearchBar } from '../components/SearchBar';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { useDarkMode } from '../hooks/useDarkMode';
 import { useGeolocation } from '../hooks/useGeolocation';
+import { useLocationAutocomplete } from '../hooks/useLocationAutocomplete';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { getWeatherByCity, getWeatherByCoords } from '../services/weatherService';
-import type { WeatherBundle } from '../types/weather';
+import { getWeatherByCity, getWeatherByCoords, getWeatherByLocation } from '../services/weatherService';
+import type { LocationSuggestion, WeatherBundle } from '../types/weather';
 import { getWeatherGradient } from '../utils/weatherTheme';
 
 const DEFAULT_CITY = 'London';
+
+const ForecastDetails = lazy(() =>
+  import('../components/ForecastDetails').then((module) => ({
+    default: module.ForecastDetails,
+  })),
+);
+
+const HourlyChart = lazy(() =>
+  import('../components/HourlyChart').then((module) => ({
+    default: module.HourlyChart,
+  })),
+);
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -51,13 +62,47 @@ const getWeatherHeadline = (condition?: string) => {
   return 'Bright skies, clear plans.';
 };
 
+const formatRecentLabel = (name: string, country?: string) => {
+  if (!country || country.toLowerCase() === 'local') {
+    return name;
+  }
+
+  return `${name}, ${country}`;
+};
+
+const SectionSkeleton = ({ title, subtitle }: { title: string; subtitle: string }) => (
+  <section className="glass-card min-h-72 animate-pulse p-5 sm:p-6">
+    <div className="mb-4 flex items-center justify-between">
+      <div>
+        <div className="h-4 w-32 rounded-full bg-white/30" />
+        <div className="mt-2 h-6 w-48 rounded-full bg-white/40" />
+      </div>
+      <div className="h-4 w-20 rounded-full bg-white/25" />
+    </div>
+    <div className="space-y-3">
+      <div className="h-4 w-3/4 rounded-full bg-white/25" />
+      <div className="h-4 w-2/3 rounded-full bg-white/25" />
+      <div className="h-4 w-4/5 rounded-full bg-white/25" />
+    </div>
+    <p className="mt-6 text-xs uppercase tracking-wide text-slate-500 dark:text-slate-300">
+      {title} - {subtitle}
+    </p>
+  </section>
+);
+
 export function WeatherDashboard() {
   const [weather, setWeather] = useState<WeatherBundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useLocalStorage<string[]>('weather-recent-searches', []);
   const { getLocation, isLocating, geoError, clearGeoError } = useGeolocation();
   const { isDark, toggleTheme } = useDarkMode();
+  const {
+    suggestions,
+    isLoading: suggestionsLoading,
+    error: suggestionsError,
+  } = useLocationAutocomplete(searchQuery);
   const weatherCondition = weather?.current.condition.main;
 
   const gradient = useMemo(
@@ -82,11 +127,32 @@ export function WeatherDashboard() {
     setLoading(true);
     setError(null);
     clearGeoError();
+    setSearchQuery(city);
 
     try {
       const data = await getWeatherByCity(city);
       setWeather(data);
-      saveRecentSearch(data.current.name);
+      const recentLabel = formatRecentLabel(data.current.name, data.current.country);
+      saveRecentSearch(recentLabel);
+      setSearchQuery(recentLabel);
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadLocationWeather = async (suggestion: LocationSuggestion) => {
+    setLoading(true);
+    setError(null);
+    clearGeoError();
+    setSearchQuery(suggestion.label);
+
+    try {
+      const data = await getWeatherByLocation(suggestion);
+      setWeather(data);
+      saveRecentSearch(suggestion.label);
+      setSearchQuery(suggestion.label);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -102,13 +168,19 @@ export function WeatherDashboard() {
       const coords = await getLocation();
       const data = await getWeatherByCoords(coords);
       setWeather(data);
-      saveRecentSearch(data.current.name);
+      const recentLabel = formatRecentLabel(data.current.name, data.current.country);
+      saveRecentSearch(recentLabel);
+      setSearchQuery(recentLabel);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
       setLoading(false);
     }
   };
+
+  const hourlyOverview = useMemo(() => weather?.hourly.slice(0, 8) ?? [], [weather]);
+  const weeklyOverview = useMemo(() => weather?.daily.slice(0, 7) ?? [], [weather]);
+  const hourlyChart = useMemo(() => weather?.hourly.slice(0, 30) ?? [], [weather]);
 
   useEffect(() => {
     void loadCityWeather(recentSearches[0] ?? DEFAULT_CITY);
@@ -137,8 +209,13 @@ export function WeatherDashboard() {
             loading={loading}
             locating={isLocating}
             onLocate={loadCurrentLocation}
+            onQueryChange={setSearchQuery}
             onSearch={loadCityWeather}
-            suggestions={recentSearches}
+            onSuggestionSelect={loadLocationWeather}
+            query={searchQuery}
+            suggestions={suggestions}
+            suggestionsError={suggestionsError}
+            suggestionsLoading={suggestionsLoading}
           />
           <div className="mt-4">
             <RecentSearches onSelect={loadCityWeather} searches={recentSearches} />
@@ -157,10 +234,13 @@ export function WeatherDashboard() {
                 weather={weather.current}
                 precipitationChance={weather.hourly[0]?.precipitationChance}
               />
-              <ForecastDetails hourly={weather.hourly} weekly={weather.daily} />
+              <Suspense fallback={<SectionSkeleton title="Planning View" subtitle="Loading forecast" />}>
+                <ForecastDetails hourly={hourlyOverview} weekly={weeklyOverview} />
+              </Suspense>
             </div>
-
-            <HourlyChart hourly={weather.hourly} />
+            <Suspense fallback={<SectionSkeleton title="Hourly Temperature" subtitle="Loading chart" />}>
+              <HourlyChart hourly={hourlyChart} />
+            </Suspense>
           </>
         )}
       </div>

@@ -4,6 +4,7 @@ import type {
   CurrentWeather,
   DailyForecast,
   ForecastPoint,
+  LocationSuggestion,
   OpenMeteoForecastResponse,
   OpenMeteoGeocodingResponse,
   OpenMeteoLocation,
@@ -20,6 +21,74 @@ const geocodingApi = axios.create({
   baseURL: 'https://geocoding-api.open-meteo.com/v1',
   timeout: 12000,
 });
+
+const CACHE_PREFIX = 'weather-cache';
+const WEATHER_TTL_MS = 30 * 60 * 1000;
+const GEOCODE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MIN_SEARCH_LENGTH = 2;
+
+type CacheEntry<T> = {
+  value: T;
+  expiresAt: number;
+};
+
+const memoryCache = new Map<string, CacheEntry<unknown>>();
+
+const getCacheKey = (key: string) => `${CACHE_PREFIX}:${key}`;
+
+const readCache = <T,>(key: string): T | null => {
+  const now = Date.now();
+  const memoryEntry = memoryCache.get(key);
+
+  if (memoryEntry) {
+    if (memoryEntry.expiresAt > now) {
+      return memoryEntry.value as T;
+    }
+
+    memoryCache.delete(key);
+  }
+
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const stored = window.localStorage.getItem(getCacheKey(key));
+  if (!stored) {
+    return null;
+  }
+
+  try {
+    const entry = JSON.parse(stored) as CacheEntry<T>;
+    if (entry.expiresAt > now) {
+      memoryCache.set(key, entry);
+      return entry.value;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+const writeCache = <T,>(key: string, value: T, ttlMs: number) => {
+  const entry: CacheEntry<T> = {
+    value,
+    expiresAt: Date.now() + ttlMs,
+  };
+
+  memoryCache.set(key, entry);
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(getCacheKey(key), JSON.stringify(entry));
+  }
+};
+
+const normalizeQuery = (query: string) => query.trim().toLowerCase();
+
+const formatLocationLabel = (location: OpenMeteoLocation) => {
+  const parts = [location.name, location.admin1, location.country_code ?? location.country].filter(Boolean);
+  return parts.join(', ');
+};
 
 const weatherCodeMap: Record<number, WeatherCondition> = {
   0: { code: 0, main: 'Clear', description: 'clear sky', icon: '☀️' },
@@ -138,6 +207,12 @@ const normalizeForecast = (
 };
 
 const getForecastByLocation = async (location: OpenMeteoLocation): Promise<WeatherBundle> => {
+  const cacheKey = `weather:${location.latitude.toFixed(3)}:${location.longitude.toFixed(3)}`;
+  const cached = readCache<WeatherBundle>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const response = await forecastApi.get<OpenMeteoForecastResponse>('/forecast', {
     params: forecastParams({
       lat: location.latitude,
@@ -145,32 +220,86 @@ const getForecastByLocation = async (location: OpenMeteoLocation): Promise<Weath
     }),
   });
 
-  return normalizeForecast(response.data, location);
+  const normalized = normalizeForecast(response.data, location);
+  writeCache(cacheKey, normalized, WEATHER_TTL_MS);
+  return normalized;
 };
 
-export const getWeatherByCity = async (city: string): Promise<WeatherBundle> => {
+export const searchLocations = async (query: string, count = 6): Promise<LocationSuggestion[]> => {
+  const normalizedQuery = normalizeQuery(query);
+
+  if (normalizedQuery.length < MIN_SEARCH_LENGTH) {
+    return [];
+  }
+
+  const cacheKey = `geocode:${normalizedQuery}:${count}:en`;
+  const cached = readCache<LocationSuggestion[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const response = await geocodingApi.get<OpenMeteoGeocodingResponse>('/search', {
     params: {
-      name: city.trim(),
-      count: 1,
+      name: query.trim(),
+      count,
       language: 'en',
       format: 'json',
     },
   });
 
-  const location = response.data.results?.[0];
+  const suggestions = (response.data.results ?? []).map((location) => ({
+    id: location.id,
+    name: location.name,
+    admin1: location.admin1,
+    country: location.country ?? location.country_code,
+    countryCode: location.country_code,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    timezone: location.timezone,
+    label: formatLocationLabel(location),
+  }));
+
+  writeCache(cacheKey, suggestions, GEOCODE_TTL_MS);
+  return suggestions;
+};
+
+export const getWeatherByLocation = async (suggestion: LocationSuggestion): Promise<WeatherBundle> => {
+  const location: OpenMeteoLocation = {
+    id: suggestion.id,
+    name: suggestion.name,
+    latitude: suggestion.latitude,
+    longitude: suggestion.longitude,
+    country: suggestion.country,
+    country_code: suggestion.countryCode,
+    timezone: suggestion.timezone,
+    admin1: suggestion.admin1,
+  };
+
+  return getForecastByLocation(location);
+};
+
+export const getWeatherByCity = async (city: string): Promise<WeatherBundle> => {
+  const [location] = await searchLocations(city, 1);
 
   if (!location) {
     throw new Error(`No weather location found for "${city}". Try a nearby city or a more specific search.`);
   }
 
-  return getForecastByLocation(location);
+  return getWeatherByLocation(location);
 };
 
 export const getWeatherByCoords = async ({ lat, lon }: Coordinates): Promise<WeatherBundle> => {
+  const cacheKey = `weather:${lat.toFixed(3)}:${lon.toFixed(3)}`;
+  const cached = readCache<WeatherBundle>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const response = await forecastApi.get<OpenMeteoForecastResponse>('/forecast', {
     params: forecastParams({ lat, lon }),
   });
 
-  return normalizeForecast(response.data);
+  const normalized = normalizeForecast(response.data);
+  writeCache(cacheKey, normalized, WEATHER_TTL_MS);
+  return normalized;
 };
