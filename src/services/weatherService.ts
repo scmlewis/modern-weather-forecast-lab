@@ -22,7 +22,7 @@ const geocodingApi = axios.create({
   timeout: 12000,
 });
 
-const CACHE_PREFIX = 'weather-cache';
+const CACHE_PREFIX = 'weather-cache-v2';
 const WEATHER_TTL_MS = 30 * 60 * 1000;
 const GEOCODE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MIN_SEARCH_LENGTH = 2;
@@ -142,6 +142,11 @@ const forecastParams = ({ lat, lon }: Coordinates) => ({
     'weather_code',
     'wind_speed_10m',
     'precipitation_probability',
+    'surface_pressure',
+    'visibility',
+    'cloud_cover',
+    'wind_gusts_10m',
+    'precipitation',
   ].join(','),
   daily: [
     'weather_code',
@@ -165,6 +170,45 @@ const normalizeForecast = (
   location?: OpenMeteoLocation,
 ): WeatherBundle => {
   const label = normalizeLocationLabel(location);
+  const resolveNearestIndex = (times: string[], target: string) => {
+    if (times.length === 0) {
+      return 0;
+    }
+
+    const exactIndex = times.indexOf(target);
+    if (exactIndex >= 0) {
+      return exactIndex;
+    }
+
+    const targetMillis = Date.parse(target);
+    if (Number.isNaN(targetMillis)) {
+      return 0;
+    }
+
+    let closestIndex = 0;
+    let closestDiff = Number.POSITIVE_INFINITY;
+
+    times.forEach((time, index) => {
+      const timeMillis = Date.parse(time);
+      if (Number.isNaN(timeMillis)) {
+        return;
+      }
+
+      const diff = Math.abs(timeMillis - targetMillis);
+      if (diff < closestDiff) {
+        closestDiff = diff;
+        closestIndex = index;
+      }
+    });
+
+    return closestIndex;
+  };
+
+  const resolvedIndex = resolveNearestIndex(data.hourly.time, data.current.time);
+  const fallbackIndex = data.hourly.time.length > 0 ? 0 : resolvedIndex;
+  const resolveHourlyValue = <T,>(values: T[] | undefined | null) =>
+    values?.[resolvedIndex] ?? values?.[fallbackIndex] ?? null;
+  const visibilityMeters = resolveHourlyValue(data.hourly.visibility);
   const hourly: ForecastPoint[] = data.hourly.time.map((time, index) => ({
     time,
     temperature: data.hourly.temperature_2m[index],
@@ -197,6 +241,11 @@ const normalizeForecast = (
     feelsLike: data.current.apparent_temperature,
     humidity: data.current.relative_humidity_2m,
     windSpeed: data.current.wind_speed_10m,
+    windGust: resolveHourlyValue(data.hourly.wind_gusts_10m),
+    pressure: resolveHourlyValue(data.hourly.surface_pressure),
+    visibilityKm: visibilityMeters == null ? null : Math.max(0, visibilityMeters / 1000),
+    cloudCover: resolveHourlyValue(data.hourly.cloud_cover),
+    precipitationRate: resolveHourlyValue(data.hourly.precipitation),
     condition: getWeatherCondition(data.current.weather_code),
     sunrise: data.daily.sunrise[0],
     sunset: data.daily.sunset[0],

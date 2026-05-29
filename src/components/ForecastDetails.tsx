@@ -1,11 +1,21 @@
 import { CalendarDays, CloudRain, Clock3, Thermometer, Wind } from 'lucide-react';
 import { useState } from 'react';
 import type { DailyForecast, ForecastPoint } from '../types/weather';
-import { formatDay, formatHour, roundTemp, titleCase } from '../utils/format';
+import {
+  formatDay,
+  formatHour,
+  roundTemp,
+  type TemperatureUnit,
+  type TimeMode,
+  titleCase,
+} from '../utils/format';
 
 interface ForecastDetailsProps {
   hourly: ForecastPoint[];
   weekly: DailyForecast[];
+  timezone?: string;
+  temperatureUnit?: TemperatureUnit;
+  timeMode?: TimeMode;
 }
 
 type ForecastMode = 'today' | 'week';
@@ -22,11 +32,34 @@ const dayLabel = (date: string, index: number) => {
   return formatDay(date).split(',')[0];
 };
 
-export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
+const getTimeZoneLabel = (timezone: string | undefined, timeMode: TimeMode) => {
+  const resolvedTimeZone = timeMode === 'device' ? undefined : timezone;
+
+  if (!resolvedTimeZone && timeMode !== 'device') {
+    return '';
+  }
+
+  const formatted = new Intl.DateTimeFormat('en', {
+    timeZone: resolvedTimeZone,
+    timeZoneName: 'short',
+  }).format(new Date());
+
+  return formatted.split(' ').pop() ?? '';
+};
+
+export function ForecastDetails({
+  hourly,
+  weekly,
+  timezone,
+  temperatureUnit = 'c',
+  timeMode = 'location',
+}: ForecastDetailsProps) {
   const [mode, setMode] = useState<ForecastMode>('today');
+  const timeZoneLabel = getTimeZoneLabel(timezone, timeMode);
+  const timeHeader = timeZoneLabel ? `Time (${timeZoneLabel})` : 'Time';
 
   return (
-    <section className="glass-card overflow-hidden p-5 sm:p-6">
+    <section className="glass-card overflow-hidden p-4 sm:p-6">
       <div className="flex flex-col gap-4 border-b border-white/20 pb-4 dark:border-white/10 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300">
@@ -57,9 +90,9 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
       </div>
 
       {mode === 'today' ? (
-        <div className="mt-4 grid gap-3 sm:gap-2">
-          <div className="hidden grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] px-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid">
-            <span>Time</span>
+        <div className="mt-4 grid gap-2 sm:gap-3">
+          <div className="hidden grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] justify-items-center px-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid sm:text-center">
+            <span>{timeHeader}</span>
             <span>Sky</span>
             <span>Temp</span>
             <span>Rain</span>
@@ -67,13 +100,17 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
           </div>
           {hourly.map((point, index) => (
             <article
-              className="flex flex-col gap-4 rounded-2xl bg-white/30 p-4 transition hover:-translate-y-0.5 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15 sm:grid sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center"
+              className={`flex flex-col gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 sm:grid sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center sm:text-center ${
+                index % 2 === 0
+                  ? 'bg-white/30 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15'
+                  : 'bg-white/40 hover:bg-white/50 dark:bg-white/15 dark:hover:bg-white/20'
+              }`}
               key={point.time}
             >
-              <div className="flex items-start justify-between gap-3 sm:block">
-                <div>
+              <div className="flex items-start justify-between gap-3 sm:block sm:text-center">
+                <div className="sm:flex sm:flex-col sm:items-center">
                   <p className="text-sm font-black text-slate-950 dark:text-white">
-                    {index === 0 ? 'Now' : formatHour(point.time)}
+                    {index === 0 ? 'Now' : formatHour(point.time, { timeZone: timezone, mode: timeMode })}
                   </p>
                   <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
                     {titleCase(point.condition.description)}
@@ -87,18 +124,18 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
                 {point.condition.icon}
               </div>
               <div className="flex flex-wrap items-center gap-4 text-xs sm:contents">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap sm:justify-center">
                   <Thermometer className="h-4 w-4 text-sky-600 dark:text-sky-300" />
-                  {roundTemp(point.temperature)}
+                    {roundTemp(point.temperature, temperatureUnit)}
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    feels {roundTemp(point.feelsLike)}
+                      feels {roundTemp(point.feelsLike, temperatureUnit)}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap sm:justify-center">
                   <CloudRain className="h-4 w-4 text-sky-600 dark:text-sky-300" />
                   {point.precipitationChance}%
                 </div>
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap sm:justify-center">
                   <Wind className="h-4 w-4 text-sky-600 dark:text-sky-300" />
                   {point.windSpeed.toFixed(1)} m/s
                 </div>
@@ -107,8 +144,8 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
           ))}
         </div>
       ) : (
-        <div className="mt-4 grid gap-3 sm:gap-2">
-          <div className="hidden grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] px-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid">
+        <div className="mt-4 grid gap-2 sm:gap-3">
+          <div className="hidden grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] justify-items-center px-3 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid sm:text-center">
             <span>Day</span>
             <span>Sky</span>
             <span>Low / High</span>
@@ -117,11 +154,15 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
           </div>
           {weekly.map((day, index) => (
             <article
-              className="flex flex-col gap-4 rounded-2xl bg-white/30 p-4 transition hover:-translate-y-0.5 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15 sm:grid sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center"
+              className={`flex flex-col gap-4 rounded-2xl p-4 transition hover:-translate-y-0.5 sm:grid sm:grid-cols-[1fr_0.7fr_0.9fr_0.9fr_0.9fr] sm:items-center sm:text-center ${
+                index % 2 === 0
+                  ? 'bg-white/30 hover:bg-white/45 dark:bg-white/10 dark:hover:bg-white/15'
+                  : 'bg-white/40 hover:bg-white/50 dark:bg-white/15 dark:hover:bg-white/20'
+              }`}
               key={day.date}
             >
-              <div className="flex items-start justify-between gap-3 sm:block">
-                <div>
+              <div className="flex items-start justify-between gap-3 sm:block sm:text-center">
+                <div className="sm:flex sm:flex-col sm:items-center">
                   <p className="text-sm font-black text-slate-950 dark:text-white">
                     {dayLabel(day.date, index)}
                   </p>
@@ -137,14 +178,14 @@ export function ForecastDetails({ hourly, weekly }: ForecastDetailsProps) {
                 {day.condition.icon}
               </div>
               <div className="flex flex-wrap items-center gap-4 text-xs sm:contents">
-                <p className="text-sm font-black text-slate-950 dark:text-white whitespace-nowrap">
-                  {roundTemp(day.min)} / {roundTemp(day.max)}
+                <p className="text-sm font-black text-slate-950 dark:text-white whitespace-nowrap sm:justify-center">
+                    {roundTemp(day.min, temperatureUnit)} / {roundTemp(day.max, temperatureUnit)}
                 </p>
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap sm:justify-center">
                   <CloudRain className="h-4 w-4 text-sky-600 dark:text-sky-300" />
                   {day.precipitationSum.toFixed(1)} mm
                 </div>
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white whitespace-nowrap sm:justify-center">
                   <Wind className="h-4 w-4 text-sky-600 dark:text-sky-300" />
                   {day.maxWindSpeed.toFixed(1)} m/s
                 </div>

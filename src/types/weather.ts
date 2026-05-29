@@ -18,6 +18,11 @@ export interface CurrentWeather {
   feelsLike: number;
   humidity: number;
   windSpeed: number;
+  windGust: number | null;
+  pressure: number | null;
+  visibilityKm: number | null;
+  cloudCover: number | null;
+  precipitationRate: number | null;
   condition: WeatherCondition;
   sunrise: string;
   sunset: string;
@@ -63,6 +68,16 @@ export interface LocationSuggestion {
   label: string;
 }
 
+export type RecentSearchEntry = {
+  id: string;
+  label: string;
+  kind: 'city' | 'location' | 'coords';
+  dedupeKey?: string;
+  query?: string;
+  location?: LocationSuggestion;
+  coords?: Coordinates;
+};
+
 export interface OpenMeteoLocation {
   id: number;
   name: string;
@@ -98,6 +113,11 @@ export interface OpenMeteoForecastResponse {
     weather_code: number[];
     wind_speed_10m: number[];
     precipitation_probability: number[];
+    surface_pressure: number[];
+    visibility: number[];
+    cloud_cover: number[];
+    wind_gusts_10m: number[];
+    precipitation: number[];
   };
   daily: {
     time: string[];
