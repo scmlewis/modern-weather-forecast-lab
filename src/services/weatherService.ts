@@ -252,7 +252,7 @@ const normalizeForecast = (
     timezone: label.timezone ?? data.timezone,
   };
 
-  return { current, hourly, daily };
+  return { current, hourly, daily, currentHourlyIndex: resolvedIndex };
 };
 
 const getForecastByLocation = async (location: OpenMeteoLocation): Promise<WeatherBundle> => {

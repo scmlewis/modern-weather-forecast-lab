@@ -79,10 +79,23 @@ const formatDeviceTime = (date: Date, withMinutes: boolean) =>
     minute: withMinutes ? '2-digit' : undefined,
   }).format(date);
 
+const hasExplicitTimeZone = (dateTime: string) => /(?:Z|[+-]\d{2}:\d{2})$/i.test(dateTime);
+
+const formatTimeInTimeZone = (dateTime: string, timeZone: string) =>
+  new Intl.DateTimeFormat('en', {
+    timeZone,
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(dateTime));
+
 const formatTimeWithMode = (dateTime: string, timeZone: string | undefined, mode: TimeMode) => {
   if (mode === 'device' && timeZone) {
     const utcDate = getUtcDateFromZoneTime(dateTime, timeZone);
     return formatDeviceTime(utcDate, true);
+  }
+
+  if (timeZone && hasExplicitTimeZone(dateTime)) {
+    return formatTimeInTimeZone(dateTime, timeZone);
   }
 
   return formatLocalIsoTime(dateTime);

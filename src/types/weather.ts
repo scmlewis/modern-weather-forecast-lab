@@ -54,6 +54,7 @@ export interface WeatherBundle {
   current: CurrentWeather;
   hourly: ForecastPoint[];
   daily: DailyForecast[];
+  currentHourlyIndex: number;
 }
 
 export interface LocationSuggestion {

@@ -37,6 +37,14 @@ const locations: Record<string, LocationResponse> = {
     admin1: 'Berlin',
     timezone: 'Europe/Berlin',
   },
+  hongkong: {
+    id: 4,
+    name: 'Hong Kong',
+    latitude: 22.3193,
+    longitude: 114.1694,
+    country_code: 'HK',
+    timezone: 'Asia/Hong_Kong',
+  },
 };
 
 const buildTimes = (start: Date, count: number, stepHours: number) =>
@@ -51,20 +59,24 @@ const buildDailyDates = (start: Date, count: number) =>
     return date.toISOString().split('T')[0];
   });
 
+const normalizeSearchKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
 const buildForecastResponse = (lat: number, lon: number) => {
-  const start = new Date('2026-05-22T06:00:00Z');
+  const isHongKong = Math.abs(lat - 22.3193) < 0.05 && Math.abs(lon - 114.1694) < 0.05;
+  const start = new Date(isHongKong ? '2026-05-22T00:00:00Z' : '2026-05-22T06:00:00Z');
   const hourlyCount = 48;
   const dailyCount = 7;
 
   const hourlyTimes = buildTimes(start, hourlyCount, 1);
   const dailyDates = buildDailyDates(start, dailyCount);
+  const currentIndex = isHongKong ? 12 : 0;
 
   return {
     latitude: lat,
     longitude: lon,
     timezone: 'UTC',
     current: {
-      time: hourlyTimes[0],
+      time: hourlyTimes[currentIndex],
       temperature_2m: 18,
       relative_humidity_2m: 60,
       apparent_temperature: 17,
@@ -98,7 +110,12 @@ test.beforeEach(async ({ page }) => {
     const url = new URL(route.request().url());
     const name = url.searchParams.get('name')?.toLowerCase() ?? '';
 
-    const matched = Object.keys(locations).find((key) => key.startsWith(name) || name.startsWith(key));
+    const matched = Object.keys(locations).find((key) => {
+      const normalizedKey = normalizeSearchKey(key);
+      const normalizedName = normalizeSearchKey(name);
+
+      return normalizedKey.startsWith(normalizedName) || normalizedName.startsWith(normalizedKey);
+    });
     const result = matched ? [locations[matched]] : [];
 
     await route.fulfill({
@@ -127,6 +144,7 @@ test('loads the default weather and renders main sections', async ({ page }) => 
   await expect(page.getByText('Hourly Temperature')).toBeVisible();
   await expect(page.getByText('Hourly and Weekly Outlook')).toBeVisible();
   await expect(page.getByPlaceholder('Search city')).toHaveValue('London, GB');
+  await expect(page.getByText('6:45 AM')).toBeVisible();
 });
 
 test('autocomplete selects a suggestion with keyboard navigation', async ({ page }) => {
@@ -159,7 +177,12 @@ test('autocomplete uses cached results for repeated queries', async ({ page }) =
     const key = name.trim();
     callCount[key] = (callCount[key] ?? 0) + 1;
 
-    const matched = Object.keys(locations).find((loc) => loc.startsWith(name) || name.startsWith(loc));
+    const matched = Object.keys(locations).find((loc) => {
+      const normalizedKey = normalizeSearchKey(loc);
+      const normalizedName = normalizeSearchKey(name);
+
+      return normalizedKey.startsWith(normalizedName) || normalizedName.startsWith(normalizedKey);
+    });
     const result = matched ? [locations[matched]] : [];
 
     await route.fulfill({
@@ -197,6 +220,22 @@ test('autocomplete uses cached results for repeated queries', async ({ page }) =
   await expect(page.getByRole('option', { name: 'Berlin, Berlin, DE' })).toBeVisible();
 
   await expect.poll(() => callCount.ber).toBe(1);
+});
+
+test('hourly outlook starts from the current hour for timezone-aware locations', async ({ page }) => {
+  await page.goto('/');
+
+  const input = page.getByPlaceholder('Search city');
+  await input.click();
+  await input.press('Control+A');
+  await input.press('Backspace');
+  await input.type('hong kong');
+
+  await expect(page.getByRole('option', { name: 'Hong Kong, HK' })).toBeVisible();
+  await input.press('ArrowDown');
+  await input.press('Enter');
+
+  await expect(page.getByText('9 PM', { exact: true })).toBeVisible();
 });
 
 test('visual snapshot of the dashboard', async ({ page }) => {

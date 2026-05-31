@@ -344,9 +344,16 @@ export function WeatherDashboard() {
     }
   };
 
-  const hourlyOverview = useMemo(() => weather?.hourly.slice(0, 8) ?? [], [weather]);
+  const currentHourlyIndex = weather?.currentHourlyIndex ?? 0;
+  const hourlyOverview = useMemo(
+    () => weather?.hourly.slice(currentHourlyIndex, currentHourlyIndex + 8) ?? [],
+    [currentHourlyIndex, weather],
+  );
   const weeklyOverview = useMemo(() => weather?.daily.slice(0, 7) ?? [], [weather]);
-  const hourlyChart = useMemo(() => weather?.hourly.slice(0, 30) ?? [], [weather]);
+  const hourlyChart = useMemo(
+    () => weather?.hourly.slice(currentHourlyIndex, currentHourlyIndex + 30) ?? [],
+    [currentHourlyIndex, weather],
+  );
   const extraMetrics = useMemo(() => {
     if (!weather) {
       return [];
@@ -507,7 +514,7 @@ export function WeatherDashboard() {
             <div className="grid gap-4 sm:gap-5 lg:grid-cols-[1.05fr_1.6fr]">
               <CurrentWeatherCard
                 weather={weather.current}
-                precipitationChance={weather.hourly[0]?.precipitationChance}
+                precipitationChance={weather.hourly[currentHourlyIndex]?.precipitationChance}
                 temperatureUnit={temperatureUnit}
                 timeMode={timeMode}
               />
@@ -535,7 +542,7 @@ export function WeatherDashboard() {
                   Now
                 </span>
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 {extraMetrics.map((metric) => (
                   <MetricCard
                     icon={metric.icon}
