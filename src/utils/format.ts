@@ -1,5 +1,6 @@
 export type TemperatureUnit = 'c' | 'f';
 export type TimeMode = 'location' | 'device';
+export type WindSpeedUnit = 'ms' | 'kmh' | 'mph';
 
 const toFahrenheit = (value: number) => (value * 9) / 5 + 32;
 
@@ -12,7 +13,29 @@ export const roundTemp = (value: number, unit: TemperatureUnit = 'c') =>
 export const formatTempLabel = (value: number, unit: TemperatureUnit) =>
   `${Math.round(convertTemp(value, unit))}\u00b0${unit.toUpperCase()}`;
 
-export const formatSpeed = (value: number) => `${value.toFixed(1)} m/s`;
+export const formatSpeed = (value: number, unit: WindSpeedUnit = 'ms'): string => {
+  const converted = unit === 'kmh' ? value * 3.6 : unit === 'mph' ? value * 2.237 : value;
+  const label = unit === 'ms' ? 'm/s' : unit === 'kmh' ? 'km/h' : 'mph';
+  return `${converted.toFixed(1)} ${label}`;
+};
+
+const CARDINAL_DIRECTIONS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'] as const;
+
+export const formatWindDirection = (degrees: number): string => {
+  const index = Math.round(degrees / 45) % 8;
+  return `${Math.round(degrees)}\u00b0 ${CARDINAL_DIRECTIONS[index]}`;
+};
+
+export const formatUvIndex = (value: number | null): string =>
+  value == null ? 'n/a' : `${Math.round(value)}`;
+
+export const getUvLevel = (value: number): { label: string; color: string } => {
+  if (value <= 2) return { label: 'Low', color: 'text-green-600 dark:text-green-400' };
+  if (value <= 5) return { label: 'Moderate', color: 'text-yellow-600 dark:text-yellow-400' };
+  if (value <= 7) return { label: 'High', color: 'text-orange-600 dark:text-orange-400' };
+  if (value <= 10) return { label: 'Very High', color: 'text-red-600 dark:text-red-400' };
+  return { label: 'Extreme', color: 'text-purple-600 dark:text-purple-400' };
+};
 
 const formatLocalIsoTime = (dateTime: string) => {
   const [, time = '00:00'] = dateTime.split('T');

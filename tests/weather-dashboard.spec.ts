@@ -82,6 +82,8 @@ const buildForecastResponse = (lat: number, lon: number) => {
       apparent_temperature: 17,
       weather_code: 1,
       wind_speed_10m: 4,
+      wind_direction_10m: 180,
+      uv_index: 3,
     },
     hourly: {
       time: hourlyTimes,
@@ -90,6 +92,7 @@ const buildForecastResponse = (lat: number, lon: number) => {
       apparent_temperature: hourlyTimes.map((_, index) => 15 + (index % 6)),
       weather_code: hourlyTimes.map(() => 1),
       wind_speed_10m: hourlyTimes.map(() => 4),
+      wind_direction_10m: hourlyTimes.map(() => 180),
       precipitation_probability: hourlyTimes.map(() => 10),
     },
     daily: {
@@ -99,6 +102,7 @@ const buildForecastResponse = (lat: number, lon: number) => {
       temperature_2m_min: dailyDates.map(() => 12),
       precipitation_sum: dailyDates.map(() => 1),
       wind_speed_10m_max: dailyDates.map(() => 6),
+      uv_index_max: dailyDates.map(() => 5),
       sunrise: dailyDates.map((date) => `${date}T05:45:00Z`),
       sunset: dailyDates.map((date) => `${date}T20:35:00Z`),
     },

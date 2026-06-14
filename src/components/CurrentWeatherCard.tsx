@@ -1,12 +1,22 @@
 import { CloudRain, Droplets, Eye, MapPin, Sunrise, Sunset, Wind } from 'lucide-react';
 import type { CurrentWeather } from '../types/weather';
-import { formatSpeed, formatTime, roundTemp, type TemperatureUnit, type TimeMode, titleCase } from '../utils/format';
+import {
+  formatSpeed,
+  formatTime,
+  formatWindDirection,
+  roundTemp,
+  type TemperatureUnit,
+  type TimeMode,
+  type WindSpeedUnit,
+  titleCase,
+} from '../utils/format';
 
 interface CurrentWeatherCardProps {
   weather: CurrentWeather;
   precipitationChance?: number;
   temperatureUnit?: TemperatureUnit;
   timeMode?: TimeMode;
+  windSpeedUnit?: WindSpeedUnit;
 }
 
 export function CurrentWeatherCard({
@@ -14,6 +24,7 @@ export function CurrentWeatherCard({
   precipitationChance,
   temperatureUnit = 'c',
   timeMode = 'location',
+  windSpeedUnit = 'ms',
 }: CurrentWeatherCardProps) {
   const precipitationValue = precipitationChance == null ? 'n/a' : `${precipitationChance}%`;
   const details = [
@@ -25,7 +36,7 @@ export function CurrentWeatherCard({
     {
       icon: Wind,
       label: 'Wind',
-      value: formatSpeed(weather.windSpeed),
+      value: `${formatSpeed(weather.windSpeed, windSpeedUnit)} ${formatWindDirection(weather.windDirection)}`,
     },
     {
       icon: Eye,

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Cloud, CloudRain, Eye, Gauge, Settings2, Wind } from 'lucide-react';
+import { Cloud, CloudRain, Compass, Eye, Gauge, Settings2, Sun, Wind } from 'lucide-react';
 import { AnimatedWeatherBackground } from '../components/AnimatedWeatherBackground';
 import { CurrentWeatherCard } from '../components/CurrentWeatherCard';
 import { ErrorBanner } from '../components/ErrorBanner';
@@ -12,14 +12,30 @@ import { useDarkMode } from '../hooks/useDarkMode';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useLocationAutocomplete } from '../hooks/useLocationAutocomplete';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
 import { getWeatherByCoords, getWeatherByLocation, searchLocations } from '../services/weatherService';
 import type { LocationSuggestion, RecentSearchEntry, WeatherBundle } from '../types/weather';
 import { getWeatherGradient } from '../utils/weatherTheme';
 import { getErrorMessage } from '../utils/errors';
-import { formatSpeed, type TemperatureUnit, type TimeMode } from '../utils/format';
+import {
+  formatSpeed,
+  formatWindDirection,
+  formatUvIndex,
+  getUvLevel,
+  type TemperatureUnit,
+  type TimeMode,
+  type WindSpeedUnit,
+} from '../utils/format';
 
 const DEFAULT_CITY = 'London';
 const MAX_RECENT_SEARCHES = 6;
+
+const formatTimeSince = (date: Date): string => {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ago`;
+};
 
 const ForecastDetails = lazy(() =>
   import('../components/ForecastDetails').then((module) => ({
@@ -186,6 +202,15 @@ export function WeatherDashboard() {
     'c',
   );
   const [timeMode, setTimeMode] = useLocalStorage<TimeMode>('weather-time-mode', 'location');
+  const [windSpeedUnit, setWindSpeedUnit] = useLocalStorage<WindSpeedUnit>(
+    'weather-wind-speed-unit',
+    'ms',
+  );
+  const [autoRefreshInterval, setAutoRefreshInterval] = useLocalStorage<number | null>(
+    'weather-auto-refresh',
+    null,
+  );
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [storedRecentSearches, setStoredRecentSearches] = useLocalStorage<
     RecentSearchEntry[] | string[]
   >('weather-recent-searches', []);
@@ -253,6 +278,7 @@ export function WeatherDashboard() {
     try {
       const data = await getWeatherByCoords(coords);
       setWeather(data);
+      setLastUpdated(new Date());
       saveRecentSearch(createCoordsEntry(coords, label));
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
@@ -278,6 +304,7 @@ export function WeatherDashboard() {
 
       const data = await getWeatherByLocation(suggestion);
       setWeather(data);
+      setLastUpdated(new Date());
       const entry = createLocationEntry(suggestion);
       saveRecentSearch(entry);
       setSearchQuery(entry.label);
@@ -297,6 +324,7 @@ export function WeatherDashboard() {
     try {
       const data = await getWeatherByLocation(suggestion);
       setWeather(data);
+      setLastUpdated(new Date());
       const entry = createLocationEntry(suggestion);
       saveRecentSearch(entry);
       setSearchQuery(entry.label);
@@ -315,6 +343,7 @@ export function WeatherDashboard() {
       const coords = await getLocation();
       const data = await getWeatherByCoords(coords);
       setWeather(data);
+      setLastUpdated(new Date());
       const recentLabel = formatRecentLabel(data.current.name, data.current.country);
       saveRecentSearch(createCoordsEntry(coords, recentLabel));
       setSearchQuery(recentLabel);
@@ -382,15 +411,28 @@ export function WeatherDashboard() {
       {
         icon: Wind,
         label: 'Wind gusts',
-        value: formatValue(weather.current.windGust, (value) => formatSpeed(value)),
+        value: formatValue(weather.current.windGust, (value) => formatSpeed(value, windSpeedUnit)),
       },
       {
         icon: CloudRain,
         label: 'Rain rate',
         value: formatValue(weather.current.precipitationRate, (value) => `${value.toFixed(1)} mm/h`),
       },
+      {
+        icon: Compass,
+        label: 'Wind direction',
+        value: formatWindDirection(weather.current.windDirection),
+      },
+      {
+        icon: Sun,
+        label: 'UV Index',
+        value: formatValue(weather.current.uvIndex, (value) => {
+          const { label } = getUvLevel(value);
+          return `${formatUvIndex(value)} - ${label}`;
+        }),
+      },
     ];
-  }, [weather]);
+  }, [weather, windSpeedUnit]);
 
   useEffect(() => {
     if (recentSearches.length > 0) {
@@ -416,6 +458,16 @@ export function WeatherDashboard() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isSettingsOpen]);
+
+  const refreshWeather = useCallback(() => {
+    if (!weather) return;
+
+    const { coordinates, name, country } = weather.current;
+    const label = formatRecentLabel(name, country);
+    void loadCoordsWeather(coordinates, label);
+  }, [weather, loadCoordsWeather]);
+
+  useAutoRefresh(refreshWeather, autoRefreshInterval);
 
   return (
     <main className={`relative min-h-screen overflow-hidden bg-gradient-to-br ${gradient} px-4 py-4 text-slate-900 transition-colors duration-700 dark:text-white sm:px-6 sm:py-5 lg:px-8`}>
@@ -497,6 +549,48 @@ export function WeatherDashboard() {
                       ))}
                     </div>
                   </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300">
+                      Wind Speed
+                    </p>
+                    <div className="mt-2 inline-flex w-full rounded-full bg-white/40 p-1 dark:bg-white/10">
+                      {(['ms', 'kmh', 'mph'] as const).map((option) => (
+                        <button
+                          className={`flex-1 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                            windSpeedUnit === option
+                              ? 'bg-slate-950 text-white dark:bg-sky-400 dark:text-slate-950'
+                              : 'text-slate-700 hover:bg-white/40 dark:text-slate-300 dark:hover:bg-white/10'
+                          }`}
+                          key={option}
+                          onClick={() => setWindSpeedUnit(option)}
+                          type="button"
+                        >
+                          {option === 'ms' ? 'm/s' : option === 'kmh' ? 'km/h' : 'mph'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300">
+                      Auto Refresh
+                    </p>
+                    <div className="mt-2 inline-flex w-full rounded-full bg-white/40 p-1 dark:bg-white/10">
+                      {([null, 300000, 600000, 900000] as const).map((option) => (
+                        <button
+                          className={`flex-1 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                            autoRefreshInterval === option
+                              ? 'bg-slate-950 text-white dark:bg-sky-400 dark:text-slate-950'
+                              : 'text-slate-700 hover:bg-white/40 dark:text-slate-300 dark:hover:bg-white/10'
+                          }`}
+                          key={option ?? 'off'}
+                          onClick={() => setAutoRefreshInterval(option)}
+                          type="button"
+                        >
+                          {option === null ? 'Off' : option === 300000 ? '5m' : option === 600000 ? '10m' : '15m'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -538,6 +632,7 @@ export function WeatherDashboard() {
                 precipitationChance={weather.hourly[currentHourlyIndex]?.precipitationChance}
                 temperatureUnit={temperatureUnit}
                 timeMode={timeMode}
+                windSpeedUnit={windSpeedUnit}
               />
               <Suspense fallback={<SectionSkeleton title="Planning View" subtitle="Loading forecast" />}>
                 <ForecastDetails
@@ -560,7 +655,9 @@ export function WeatherDashboard() {
                   </h2>
                 </div>
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Now
+                  {lastUpdated
+                    ? `Updated ${formatTimeSince(lastUpdated)}`
+                    : 'Now'}
                 </span>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
