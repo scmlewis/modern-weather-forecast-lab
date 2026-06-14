@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Cloud, CloudRain, Eye, Gauge, Settings2, Wind } from 'lucide-react';
 import { AnimatedWeatherBackground } from '../components/AnimatedWeatherBackground';
 import { CurrentWeatherCard } from '../components/CurrentWeatherCard';
@@ -15,6 +15,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { getWeatherByCoords, getWeatherByLocation, searchLocations } from '../services/weatherService';
 import type { LocationSuggestion, RecentSearchEntry, WeatherBundle } from '../types/weather';
 import { getWeatherGradient } from '../utils/weatherTheme';
+import { getErrorMessage } from '../utils/errors';
 import { formatSpeed, type TemperatureUnit, type TimeMode } from '../utils/format';
 
 const DEFAULT_CITY = 'London';
@@ -31,14 +32,6 @@ const HourlyChart = lazy(() =>
     default: module.HourlyChart,
   })),
 );
-
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return 'Something went wrong while loading weather data.';
-};
 
 const getWeatherHeadline = (condition?: string) => {
   const normalized = condition?.toLowerCase() ?? '';
@@ -204,6 +197,7 @@ export function WeatherDashboard() {
     error: suggestionsError,
   } = useLocationAutocomplete(searchQuery);
   const weatherCondition = weather?.current.condition.main;
+  const settingsRef = useRef<HTMLDivElement>(null);
   const { normalized: recentSearches, hadLegacy } = useMemo(
     () => normalizeRecentSearches(storedRecentSearches as Array<RecentSearchEntry | string>),
     [storedRecentSearches],
@@ -225,30 +219,32 @@ export function WeatherDashboard() {
     }
   }, [hadLegacy, recentSearches, setStoredRecentSearches]);
 
-  const saveRecentSearch = (entry: RecentSearchEntry) => {
-    setStoredRecentSearches((current) => {
-      const trimmedLabel = entry.label.trim();
-      const sanitizedEntry = { ...entry, label: trimmedLabel };
-      const { normalized } = normalizeRecentSearches(current as Array<RecentSearchEntry | string>);
-      const normalizedLabel = trimmedLabel.toLowerCase();
-      const next = [
-        sanitizedEntry,
-        ...normalized.filter(
-          (item) => {
-            const itemLabel = item.label.trim().toLowerCase();
-            const entryKey = sanitizedEntry.dedupeKey || sanitizedEntry.id || normalizedLabel;
-            const itemKey = item.dedupeKey || item.id || itemLabel;
+  const saveRecentSearch = useCallback(
+    (entry: RecentSearchEntry) => {
+      setStoredRecentSearches(() => {
+        const trimmedLabel = entry.label.trim();
+        const sanitizedEntry = { ...entry, label: trimmedLabel };
+        const normalizedLabel = trimmedLabel.toLowerCase();
+        const next = [
+          sanitizedEntry,
+          ...recentSearches.filter(
+            (item) => {
+              const itemLabel = item.label.trim().toLowerCase();
+              const entryKey = sanitizedEntry.dedupeKey || sanitizedEntry.id || normalizedLabel;
+              const itemKey = item.dedupeKey || item.id || itemLabel;
 
-            return itemKey !== entryKey && itemLabel !== normalizedLabel;
-          },
-        ),
-      ];
+              return itemKey !== entryKey && itemLabel !== normalizedLabel;
+            },
+          ),
+        ];
 
-      return next.slice(0, MAX_RECENT_SEARCHES);
-    });
-  };
+        return next.slice(0, MAX_RECENT_SEARCHES);
+      });
+    },
+    [recentSearches, setStoredRecentSearches],
+  );
 
-  const loadCoordsWeather = async (coords: { lat: number; lon: number }, label: string) => {
+  const loadCoordsWeather = useCallback(async (coords: { lat: number; lon: number }, label: string) => {
     setLoading(true);
     setError(null);
     clearGeoError();
@@ -263,9 +259,9 @@ export function WeatherDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clearGeoError, saveRecentSearch]);
 
-  const loadCityWeather = async (city: string) => {
+  const loadCityWeather = useCallback(async (city: string) => {
     setLoading(true);
     setError(null);
     clearGeoError();
@@ -275,7 +271,9 @@ export function WeatherDashboard() {
       const [suggestion] = await searchLocations(city, 1);
 
       if (!suggestion) {
-        throw new Error(`No weather location found for "${city}". Try a nearby city or a more specific search.`);
+        setError(`No weather location found for "${city}". Try a nearby city or a more specific search.`);
+        setLoading(false);
+        return;
       }
 
       const data = await getWeatherByLocation(suggestion);
@@ -288,9 +286,9 @@ export function WeatherDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clearGeoError, saveRecentSearch]);
 
-  const loadLocationWeather = async (suggestion: LocationSuggestion) => {
+  const loadLocationWeather = useCallback(async (suggestion: LocationSuggestion) => {
     setLoading(true);
     setError(null);
     clearGeoError();
@@ -307,7 +305,7 @@ export function WeatherDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [clearGeoError, saveRecentSearch]);
 
   const loadCurrentLocation = async () => {
     setLoading(true);
@@ -327,22 +325,25 @@ export function WeatherDashboard() {
     }
   };
 
-  const handleRecentSearchSelect = (entry: RecentSearchEntry) => {
-    if (entry.kind === 'coords' && entry.coords) {
-      void loadCoordsWeather(entry.coords, entry.label);
-      return;
-    }
+  const handleRecentSearchSelect = useCallback(
+    (entry: RecentSearchEntry) => {
+      if (entry.kind === 'coords' && entry.coords) {
+        void loadCoordsWeather(entry.coords, entry.label);
+        return;
+      }
 
-    if (entry.kind === 'location' && entry.location) {
-      void loadLocationWeather(entry.location);
-      return;
-    }
+      if (entry.kind === 'location' && entry.location) {
+        void loadLocationWeather(entry.location);
+        return;
+      }
 
-    const query = entry.query ?? entry.label;
-    if (query) {
-      void loadCityWeather(query);
-    }
-  };
+      const query = entry.query ?? entry.label;
+      if (query) {
+        void loadCityWeather(query);
+      }
+    },
+    [loadCoordsWeather, loadLocationWeather, loadCityWeather],
+  );
 
   const currentHourlyIndex = weather?.currentHourlyIndex ?? 0;
   const hourlyOverview = useMemo(
@@ -401,6 +402,21 @@ export function WeatherDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!isSettingsOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setIsSettingsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSettingsOpen]);
+
   return (
     <main className={`relative min-h-screen overflow-hidden bg-gradient-to-br ${gradient} px-4 py-4 text-slate-900 transition-colors duration-700 dark:text-white sm:px-6 sm:py-5 lg:px-8`}>
       <AnimatedWeatherBackground condition={weather?.current.condition.main} />
@@ -427,7 +443,12 @@ export function WeatherDashboard() {
             </button>
             <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
             {isSettingsOpen && (
-              <div className="absolute right-0 top-full z-20 mt-3 w-64 rounded-2xl border border-white/25 bg-white/85 p-4 text-slate-900 shadow-lg backdrop-blur dark:border-white/10 dark:bg-slate-950/85 dark:text-white">
+              <div
+                aria-label="Settings"
+                className="absolute right-0 top-full z-20 mt-3 w-64 rounded-2xl border border-white/25 bg-white/85 p-4 text-slate-900 shadow-lg backdrop-blur dark:border-white/10 dark:bg-slate-950/85 dark:text-white"
+                ref={settingsRef}
+                role="dialog"
+              >
                 <div className="space-y-4">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300">

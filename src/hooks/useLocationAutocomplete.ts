@@ -1,22 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { LocationSuggestion } from '../types/weather';
 import { searchLocations } from '../services/weatherService';
+import { getErrorMessage } from '../utils/errors';
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 350;
-
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return 'Unable to load suggestions right now.';
-};
 
 export const useLocationAutocomplete = (query: string) => {
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const normalizedQuery = query.trim();
@@ -33,18 +27,22 @@ export const useLocationAutocomplete = (query: string) => {
     setError(null);
 
     const timer = window.setTimeout(async () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       try {
         const results = await searchLocations(normalizedQuery, 6);
-        if (isActive) {
+        if (isActive && !controller.signal.aborted) {
           setSuggestions(results);
         }
       } catch (caughtError) {
-        if (isActive) {
+        if (isActive && !controller.signal.aborted) {
           setSuggestions([]);
-          setError(getErrorMessage(caughtError));
+          setError(getErrorMessage(caughtError, 'Unable to load suggestions right now.'));
         }
       } finally {
-        if (isActive) {
+        if (isActive && !controller.signal.aborted) {
           setIsLoading(false);
         }
       }
@@ -55,6 +53,12 @@ export const useLocationAutocomplete = (query: string) => {
       window.clearTimeout(timer);
     };
   }, [query]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   return { suggestions, isLoading, error };
 };

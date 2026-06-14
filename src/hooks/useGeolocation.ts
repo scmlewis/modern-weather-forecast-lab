@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Coordinates } from '../types/weather';
 
 export const useGeolocation = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const pendingRef = useRef(false);
 
   const clearGeoError = () => setGeoError(null);
 
@@ -25,6 +26,11 @@ export const useGeolocation = () => {
 
   const getLocation = () =>
     new Promise<Coordinates>((resolve, reject) => {
+      if (pendingRef.current) {
+        reject(new Error('Location request already in progress.'));
+        return;
+      }
+
       if (!navigator.geolocation) {
         const message = 'Geolocation is not supported by this browser.';
         setGeoError(message);
@@ -32,11 +38,13 @@ export const useGeolocation = () => {
         return;
       }
 
+      pendingRef.current = true;
       setIsLocating(true);
       setGeoError(null);
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          pendingRef.current = false;
           setIsLocating(false);
           resolve({
             lat: position.coords.latitude,
@@ -44,6 +52,7 @@ export const useGeolocation = () => {
           });
         },
         (error) => {
+          pendingRef.current = false;
           const message = getFriendlyGeoError(error);
           setIsLocating(false);
           setGeoError(message);
