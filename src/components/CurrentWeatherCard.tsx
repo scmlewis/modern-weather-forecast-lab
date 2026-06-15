@@ -3,7 +3,6 @@ import type { CurrentWeather } from '../types/weather';
 import {
   formatSpeed,
   formatTime,
-  formatWindDirection,
   roundTemp,
   type TemperatureUnit,
   type TimeMode,
@@ -36,7 +35,7 @@ export function CurrentWeatherCard({
     {
       icon: Wind,
       label: 'Wind',
-      value: `${formatSpeed(weather.windSpeed, windSpeedUnit)} ${formatWindDirection(weather.windDirection)}`,
+      value: formatSpeed(weather.windSpeed, windSpeedUnit),
     },
     {
       icon: Eye,
