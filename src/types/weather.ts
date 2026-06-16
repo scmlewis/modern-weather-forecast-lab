@@ -37,7 +37,6 @@ export interface ForecastPoint {
   feelsLike: number;
   humidity: number;
   windSpeed: number;
-  windDirection: number;
   condition: WeatherCondition;
   precipitationChance: number;
 }
@@ -49,7 +48,6 @@ export interface DailyForecast {
   condition: WeatherCondition;
   precipitationSum: number;
   maxWindSpeed: number;
-  uvIndexMax: number | null;
   sunrise: string;
   sunset: string;
 }
@@ -125,7 +123,6 @@ export interface OpenMeteoForecastResponse {
     cloud_cover: number[];
     wind_gusts_10m: number[];
     precipitation: number[];
-    wind_direction_10m: number[];
   };
   daily: {
     time: string[];
@@ -136,6 +133,5 @@ export interface OpenMeteoForecastResponse {
     wind_speed_10m_max: number[];
     sunrise: string[];
     sunset: string[];
-    uv_index_max: number[];
   };
 }

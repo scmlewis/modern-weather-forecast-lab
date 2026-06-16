@@ -143,7 +143,6 @@ const forecastParams = ({ lat, lon }: Coordinates) => ({
     'apparent_temperature',
     'weather_code',
     'wind_speed_10m',
-    'wind_direction_10m',
     'precipitation_probability',
     'surface_pressure',
     'visibility',
@@ -157,7 +156,6 @@ const forecastParams = ({ lat, lon }: Coordinates) => ({
     'temperature_2m_min',
     'precipitation_sum',
     'wind_speed_10m_max',
-    'uv_index_max',
     'sunrise',
     'sunset',
   ].join(','),
@@ -219,7 +217,6 @@ const normalizeForecast = (
     feelsLike: data.hourly.apparent_temperature[index],
     humidity: data.hourly.relative_humidity_2m[index],
     windSpeed: data.hourly.wind_speed_10m[index],
-    windDirection: data.hourly.wind_direction_10m[index],
     condition: getWeatherCondition(data.hourly.weather_code[index]),
     precipitationChance: data.hourly.precipitation_probability[index] ?? 0,
   }));
@@ -231,7 +228,6 @@ const normalizeForecast = (
     condition: getWeatherCondition(data.daily.weather_code[index]),
     precipitationSum: data.daily.precipitation_sum[index] ?? 0,
     maxWindSpeed: data.daily.wind_speed_10m_max[index] ?? 0,
-    uvIndexMax: data.daily.uv_index_max[index] ?? null,
     sunrise: data.daily.sunrise[index],
     sunset: data.daily.sunset[index],
   }));
@@ -333,16 +329,6 @@ export const getWeatherByLocation = async (suggestion: LocationSuggestion): Prom
   };
 
   return getForecastByLocation(location);
-};
-
-export const getWeatherByCity = async (city: string): Promise<WeatherBundle> => {
-  const [location] = await searchLocations(city, 1);
-
-  if (!location) {
-    throw new Error(`No weather location found for "${city}". Try a nearby city or a more specific search.`);
-  }
-
-  return getWeatherByLocation(location);
 };
 
 export const getWeatherByCoords = async ({ lat, lon }: Coordinates): Promise<WeatherBundle> => {
