@@ -135,3 +135,11 @@ export interface OpenMeteoForecastResponse {
     sunset: string[];
   };
 }
+
+export interface FavoriteEntry {
+  id: string;
+  name: string;
+  country: string;
+  coordinates: Coordinates;
+  label: string;
+}
