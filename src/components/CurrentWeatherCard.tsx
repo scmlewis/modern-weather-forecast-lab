@@ -1,4 +1,4 @@
-import { CloudRain, Droplets, Eye, MapPin, Sunrise, Sunset, Wind } from 'lucide-react';
+import { CloudRain, Droplets, Eye, MapPin, Star, Sunrise, Sunset, Wind } from 'lucide-react';
 import type { CurrentWeather } from '../types/weather';
 import {
   formatSpeed,
@@ -16,6 +16,8 @@ interface CurrentWeatherCardProps {
   temperatureUnit?: TemperatureUnit;
   timeMode?: TimeMode;
   windSpeedUnit?: WindSpeedUnit;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 export function CurrentWeatherCard({
@@ -24,6 +26,8 @@ export function CurrentWeatherCard({
   temperatureUnit = 'c',
   timeMode = 'location',
   windSpeedUnit = 'ms',
+  isFavorite = false,
+  onToggleFavorite,
 }: CurrentWeatherCardProps) {
   const precipitationValue = precipitationChance == null ? 'n/a' : `${precipitationChance}%`;
   const details = [
@@ -63,6 +67,20 @@ export function CurrentWeatherCard({
             {titleCase(weather.condition.description)}
           </p>
         </div>
+        {onToggleFavorite && (
+          <button
+            className={`rounded-full p-2 transition ${
+              isFavorite
+                ? 'text-amber-500 hover:text-amber-600'
+                : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
+            }`}
+            onClick={onToggleFavorite}
+            title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            type="button"
+          >
+            <Star className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
+          </button>
+        )}
       </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[1.05fr_1fr] md:items-start">
