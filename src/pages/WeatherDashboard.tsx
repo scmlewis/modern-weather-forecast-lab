@@ -1,8 +1,11 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Cloud, CloudRain, Compass, Eye, Gauge, Settings2, Sun, Wind } from 'lucide-react';
 import { AnimatedWeatherBackground } from '../components/AnimatedWeatherBackground';
+import { AirQualityCard } from '../components/AirQualityCard';
+import { AlertBanner } from '../components/AlertBanner';
 import { CurrentWeatherCard } from '../components/CurrentWeatherCard';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { FavoritesBar } from '../components/FavoritesBar';
 import { LoadingState } from '../components/LoadingState';
 import { MetricCard } from '../components/MetricCard';
 import { RecentSearches } from '../components/RecentSearches';
@@ -13,9 +16,12 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { useLocationAutocomplete } from '../hooks/useLocationAutocomplete';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useAutoRefresh } from '../hooks/useAutoRefresh';
+import { getAirQuality } from '../services/airQualityService';
 import { getWeatherByCoords, getWeatherByLocation, searchLocations } from '../services/weatherService';
-import type { LocationSuggestion, RecentSearchEntry, WeatherBundle } from '../types/weather';
+import type { AirQualityData } from '../types/airQuality';
+import type { FavoriteEntry, LocationSuggestion, RecentSearchEntry, WeatherBundle } from '../types/weather';
 import { getWeatherGradient } from '../utils/weatherTheme';
+import { checkAlerts } from '../utils/alerts';
 import { getErrorMessage } from '../utils/errors';
 import {
   formatSpeed,
@@ -214,6 +220,9 @@ export function WeatherDashboard() {
   const [storedRecentSearches, setStoredRecentSearches] = useLocalStorage<
     RecentSearchEntry[] | string[]
   >('weather-recent-searches', []);
+  const [airQuality, setAirQuality] = useState<AirQualityData | null>(null);
+  const [airQualityLoading, setAirQualityLoading] = useState(false);
+  const [favorites, setFavorites] = useLocalStorage<FavoriteEntry[]>('weather-favorites', []);
   const { getLocation, isLocating, geoError, clearGeoError } = useGeolocation();
   const { isDark, toggleTheme } = useDarkMode();
   const {
@@ -269,6 +278,19 @@ export function WeatherDashboard() {
     [recentSearches, setStoredRecentSearches],
   );
 
+  const loadAirQuality = useCallback(async (coords: { lat: number; lon: number }) => {
+    setAirQualityLoading(true);
+    try {
+      const data = await getAirQuality(coords);
+      setAirQuality(data);
+    } catch {
+      // Air quality is non-critical, fail silently
+      setAirQuality(null);
+    } finally {
+      setAirQualityLoading(false);
+    }
+  }, []);
+
   const loadCoordsWeather = useCallback(async (coords: { lat: number; lon: number }, label: string) => {
     setLoading(true);
     setError(null);
@@ -280,12 +302,62 @@ export function WeatherDashboard() {
       setWeather(data);
       setLastUpdated(new Date());
       saveRecentSearch(createCoordsEntry(coords, label));
+      void loadAirQuality(coords);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
       setLoading(false);
     }
-  }, [clearGeoError, saveRecentSearch]);
+  }, [clearGeoError, saveRecentSearch, loadAirQuality]);
+
+  const isFavorite = useMemo(() => {
+    if (!weather) return false;
+    return favorites.some(
+      (f) =>
+        Math.abs(f.coordinates.lat - weather.current.coordinates.lat) < 0.001 &&
+        Math.abs(f.coordinates.lon - weather.current.coordinates.lon) < 0.001
+    );
+  }, [weather, favorites]);
+
+  const toggleFavorite = useCallback(() => {
+    if (!weather) return;
+
+    const { coordinates, name, country } = weather.current;
+    const label = formatRecentLabel(name, country);
+
+    if (isFavorite) {
+      setFavorites((prev) =>
+        prev.filter(
+          (f) =>
+            !(Math.abs(f.coordinates.lat - coordinates.lat) < 0.001 &&
+              Math.abs(f.coordinates.lon - coordinates.lon) < 0.001)
+        )
+      );
+    } else {
+      const newFavorite: FavoriteEntry = {
+        id: `fav:${coordinates.lat.toFixed(3)}:${coordinates.lon.toFixed(3)}`,
+        name,
+        country,
+        coordinates,
+        label,
+      };
+      setFavorites((prev) => [newFavorite, ...prev].slice(0, 8));
+    }
+  }, [weather, isFavorite, setFavorites]);
+
+  const handleFavoriteSelect = useCallback(
+    (entry: FavoriteEntry) => {
+      void loadCoordsWeather(entry.coordinates, entry.label);
+    },
+    [loadCoordsWeather]
+  );
+
+  const handleFavoriteRemove = useCallback(
+    (id: string) => {
+      setFavorites((prev) => prev.filter((f) => f.id !== id));
+    },
+    [setFavorites]
+  );
 
   const loadCityWeather = useCallback(async (city: string) => {
     setLoading(true);
@@ -308,12 +380,13 @@ export function WeatherDashboard() {
       const entry = createLocationEntry(suggestion);
       saveRecentSearch(entry);
       setSearchQuery(entry.label);
+      void loadAirQuality({ lat: suggestion.latitude, lon: suggestion.longitude });
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
       setLoading(false);
     }
-  }, [clearGeoError, saveRecentSearch]);
+  }, [clearGeoError, saveRecentSearch, loadAirQuality]);
 
   const loadLocationWeather = useCallback(async (suggestion: LocationSuggestion) => {
     setLoading(true);
@@ -328,12 +401,13 @@ export function WeatherDashboard() {
       const entry = createLocationEntry(suggestion);
       saveRecentSearch(entry);
       setSearchQuery(entry.label);
+      void loadAirQuality({ lat: suggestion.latitude, lon: suggestion.longitude });
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
       setLoading(false);
     }
-  }, [clearGeoError, saveRecentSearch]);
+  }, [clearGeoError, saveRecentSearch, loadAirQuality]);
 
   const loadCurrentLocation = async () => {
     setLoading(true);
@@ -347,6 +421,7 @@ export function WeatherDashboard() {
       const recentLabel = formatRecentLabel(data.current.name, data.current.country);
       saveRecentSearch(createCoordsEntry(coords, recentLabel));
       setSearchQuery(recentLabel);
+      void loadAirQuality(coords);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
     } finally {
@@ -433,6 +508,11 @@ export function WeatherDashboard() {
       },
     ];
   }, [weather, windSpeedUnit]);
+
+  const alerts = useMemo(
+    () => (weather ? checkAlerts(weather) : []),
+    [weather]
+  );
 
   useEffect(() => {
     if (recentSearches.length > 0) {
@@ -610,6 +690,11 @@ export function WeatherDashboard() {
             suggestionsError={suggestionsError}
             suggestionsLoading={suggestionsLoading}
           />
+          <FavoritesBar
+            favorites={favorites}
+            onSelect={handleFavoriteSelect}
+            onRemove={handleFavoriteRemove}
+          />
           <div className="mt-3 sm:mt-4">
             <RecentSearches
               onClear={() => setStoredRecentSearches([])}
@@ -621,19 +706,25 @@ export function WeatherDashboard() {
 
         {error && <ErrorBanner message={error} />}
         {geoError && !error && !loading && <ErrorBanner message={geoError} />}
+        {!loading && weather && <AlertBanner alerts={alerts} />}
 
         {loading && <LoadingState />}
 
         {!loading && weather && (
           <>
             <div className="grid gap-4 sm:gap-5 lg:grid-cols-[1.05fr_1.6fr]">
-              <CurrentWeatherCard
-                weather={weather.current}
-                precipitationChance={weather.hourly[currentHourlyIndex]?.precipitationChance}
-                temperatureUnit={temperatureUnit}
-                timeMode={timeMode}
-                windSpeedUnit={windSpeedUnit}
-              />
+              <div className="space-y-4">
+                <CurrentWeatherCard
+                  weather={weather.current}
+                  precipitationChance={weather.hourly[currentHourlyIndex]?.precipitationChance}
+                  temperatureUnit={temperatureUnit}
+                  timeMode={timeMode}
+                  windSpeedUnit={windSpeedUnit}
+                  isFavorite={isFavorite}
+                  onToggleFavorite={toggleFavorite}
+                />
+                <AirQualityCard data={airQuality} loading={airQualityLoading} />
+              </div>
               <Suspense fallback={<SectionSkeleton title="Planning View" subtitle="Loading forecast" />}>
                 <ForecastDetails
                   hourly={hourlyOverview}
