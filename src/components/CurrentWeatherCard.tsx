@@ -54,7 +54,7 @@ export function CurrentWeatherCard({
   ];
 
   return (
-    <section className="glass-card min-h-full p-5 sm:p-8">
+    <section className="glass-card md:min-h-full p-5 sm:p-8">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
