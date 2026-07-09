@@ -6,6 +6,7 @@ import { AlertBanner } from '../components/AlertBanner';
 import { CurrentWeatherCard } from '../components/CurrentWeatherCard';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { FavoritesBar } from '../components/FavoritesBar';
+import { InfoButton } from '../components/InfoButton';
 import { LoadingState } from '../components/LoadingState';
 import { MetricCard } from '../components/MetricCard';
 import { RecentSearches } from '../components/RecentSearches';
@@ -564,6 +565,7 @@ export function WeatherDashboard() {
             </h1>
           </div>
           <div className="relative flex items-center gap-3">
+            <InfoButton />
             <button
               aria-expanded={isSettingsOpen}
               aria-haspopup="dialog"
