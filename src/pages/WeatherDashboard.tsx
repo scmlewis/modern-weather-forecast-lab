@@ -279,6 +279,7 @@ export function WeatherDashboard() {
   );
 
   const loadAirQuality = useCallback(async (coords: { lat: number; lon: number }) => {
+    setAirQuality(null);
     setAirQualityLoading(true);
     try {
       const data = await getAirQuality(coords);
