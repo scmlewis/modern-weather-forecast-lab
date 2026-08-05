@@ -30,7 +30,7 @@ export function RecentSearches({ searches, onSelect, onClear }: RecentSearchesPr
       <div className="flex flex-wrap gap-2">
         {searches.map((entry) => (
           <button
-            className="rounded-full border border-white/25 bg-white/30 px-3 py-2 text-xs font-semibold text-slate-800 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/45 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+            className="rounded-full border border-white/25 bg-white/30 px-3 py-2 text-xs font-semibold text-slate-800 backdrop-blur-sm transition hover:-translate-y-0.5 hover:bg-white/45 dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
             key={entry.id}
             onClick={() => onSelect(entry)}
             type="button"

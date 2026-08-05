@@ -598,7 +598,7 @@ export function WeatherDashboard() {
             {isSettingsOpen && (
               <div
                 aria-label="Settings"
-                className="absolute right-0 top-full z-20 mt-3 w-64 rounded-2xl border border-white/25 bg-white/85 p-4 text-slate-900 shadow-lg backdrop-blur dark:border-white/10 dark:bg-slate-950/85 dark:text-white"
+                className="absolute right-0 top-full z-20 mt-3 w-64 rounded-2xl border border-white/25 bg-white/85 p-4 text-slate-900 shadow-lg backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/85 dark:text-white"
                 ref={settingsRef}
                 role="dialog"
               >

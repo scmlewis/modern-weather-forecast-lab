@@ -139,7 +139,7 @@ export function SearchBar({
           value={query}
         />
         {showDropdown && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-white/20 bg-white/90 shadow-lg backdrop-blur dark:border-white/10 dark:bg-slate-900/90">
+          <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-white/20 bg-white/90 shadow-lg backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/90">
             <ul className="max-h-64 overflow-y-auto py-2 text-sm" id={listId} role="listbox">
               {suggestionsLoading && (
                 <li className="px-4 py-2 text-slate-600 dark:text-slate-200">Searching...</li>
