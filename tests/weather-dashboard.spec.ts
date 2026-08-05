@@ -255,3 +255,11 @@ test('visual snapshot of the dashboard', async ({ page }) => {
     maxDiffPixelRatio: 0.01,
   });
 });
+
+test('renders a decorative animated background canvas', async ({ page }) => {
+  await page.goto('/');
+
+  const canvas = page.locator('canvas[aria-hidden="true"]');
+  await expect(canvas).toHaveCount(1);
+  await expect(canvas).toBeVisible();
+});
