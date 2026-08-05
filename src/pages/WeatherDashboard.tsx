@@ -279,9 +279,11 @@ export function WeatherDashboard() {
     [recentSearches, setStoredRecentSearches],
   );
 
-  const loadAirQuality = useCallback(async (coords: { lat: number; lon: number }) => {
-    setAirQuality(null);
-    setAirQualityLoading(true);
+  const loadAirQuality = useCallback(async (coords: { lat: number; lon: number }, options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setAirQuality(null);
+      setAirQualityLoading(true);
+    }
     try {
       const data = await getAirQuality(coords);
       setAirQuality(data);
@@ -289,26 +291,40 @@ export function WeatherDashboard() {
       // Air quality is non-critical, fail silently
       setAirQuality(null);
     } finally {
-      setAirQualityLoading(false);
+      if (!options?.silent) {
+        setAirQualityLoading(false);
+      }
     }
   }, []);
 
-  const loadCoordsWeather = useCallback(async (coords: { lat: number; lon: number }, label: string) => {
-    setLoading(true);
-    setError(null);
-    clearGeoError();
-    setSearchQuery(label);
+  const loadCoordsWeather = useCallback(async (
+    coords: { lat: number; lon: number },
+    label: string,
+    options?: { silent?: boolean },
+  ) => {
+    if (!options?.silent) {
+      setLoading(true);
+      setError(null);
+      clearGeoError();
+      setSearchQuery(label);
+    }
 
     try {
       const data = await getWeatherByCoords(coords);
       setWeather(data);
       setLastUpdated(new Date());
-      saveRecentSearch(createCoordsEntry(coords, label));
-      void loadAirQuality(coords);
+      if (!options?.silent) {
+        saveRecentSearch(createCoordsEntry(coords, label));
+      }
+      void loadAirQuality(coords, { silent: options?.silent });
     } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
+      if (!options?.silent) {
+        setError(getErrorMessage(caughtError));
+      }
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [clearGeoError, saveRecentSearch, loadAirQuality]);
 
@@ -546,7 +562,7 @@ export function WeatherDashboard() {
 
     const { coordinates, name, country } = weather.current;
     const label = formatRecentLabel(name, country);
-    void loadCoordsWeather(coordinates, label);
+    void loadCoordsWeather(coordinates, label, { silent: true });
   }, [weather, loadCoordsWeather]);
 
   useAutoRefresh(refreshWeather, autoRefreshInterval);
@@ -658,7 +674,7 @@ export function WeatherDashboard() {
                       Auto Refresh
                     </p>
                     <div className="mt-2 inline-flex w-full rounded-full bg-white/40 p-1 dark:bg-white/10">
-                      {([null, 300000, 600000, 900000] as const).map((option) => (
+                      {([null, 1800000, 3600000] as const).map((option) => (
                         <button
                           className={`flex-1 rounded-full px-3 py-2 text-xs font-semibold transition ${
                             autoRefreshInterval === option
@@ -669,7 +685,7 @@ export function WeatherDashboard() {
                           onClick={() => setAutoRefreshInterval(option)}
                           type="button"
                         >
-                          {option === null ? 'Off' : option === 300000 ? '5m' : option === 600000 ? '10m' : '15m'}
+                          {option === null ? 'Off' : option === 1800000 ? '30m' : '60m'}
                         </button>
                       ))}
                     </div>

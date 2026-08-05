@@ -263,3 +263,16 @@ test('renders a decorative animated background canvas', async ({ page }) => {
   await expect(canvas).toHaveCount(1);
   await expect(canvas).toBeVisible();
 });
+
+test('auto-refresh settings offer only cache-aligned intervals', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByTitle('Settings').click();
+  await expect(page.getByText('Auto Refresh')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Off' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '30m' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '60m' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '5m' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '10m' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '15m' })).toHaveCount(0);
+});
