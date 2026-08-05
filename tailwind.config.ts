@@ -14,16 +14,6 @@ const config: Config = {
           '50%': { transform: 'translateX(8%)' },
           '100%': { transform: 'translateX(-8%)' },
         },
-        rainFall: {
-          '0%': { transform: 'translateY(-20%) rotate(12deg)', opacity: '0' },
-          '30%': { opacity: '0.65' },
-          '100%': { transform: 'translateY(130vh) rotate(12deg)', opacity: '0' },
-        },
-        snowFall: {
-          '0%': { transform: 'translate3d(0, -10vh, 0)', opacity: '0' },
-          '15%': { opacity: '0.8' },
-          '100%': { transform: 'translate3d(36px, 120vh, 0)', opacity: '0' },
-        },
         driftMist: {
           '0%': { transform: 'translateX(-12%)' },
           '50%': { transform: 'translateX(8%)' },
@@ -42,8 +32,6 @@ const config: Config = {
       },
       animation: {
         floatCloud: 'floatCloud 16s ease-in-out infinite',
-        rainFall: 'rainFall 1.4s linear infinite',
-        snowFall: 'snowFall 7s linear infinite',
         driftMist: 'driftMist 22s ease-in-out infinite',
         lightning: 'lightning 7s linear infinite',
         pulseSun: 'pulseSun 5s ease-in-out infinite',

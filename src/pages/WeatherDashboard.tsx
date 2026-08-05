@@ -37,6 +37,12 @@ import {
 const DEFAULT_CITY = 'London';
 const MAX_RECENT_SEARCHES = 6;
 
+const AUTO_REFRESH_OPTIONS = [
+  { value: null as number | null, label: 'Off' },
+  { value: 1800000, label: '30m' },
+  { value: 3600000, label: '60m' },
+];
+
 const formatTimeSince = (date: Date): string => {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
   if (seconds < 60) return 'just now';
@@ -253,6 +259,12 @@ export function WeatherDashboard() {
       setStoredRecentSearches(recentSearches);
     }
   }, [hadLegacy, recentSearches, setStoredRecentSearches]);
+
+  useEffect(() => {
+    setAutoRefreshInterval((stored) =>
+      stored == null || stored === 1800000 || stored === 3600000 ? stored : 1800000
+    );
+  }, [setAutoRefreshInterval]);
 
   const saveRecentSearch = useCallback(
     (entry: RecentSearchEntry) => {
@@ -676,18 +688,18 @@ export function WeatherDashboard() {
                       Auto Refresh
                     </p>
                     <div className="mt-2 inline-flex w-full rounded-full bg-white/40 p-1 dark:bg-white/10">
-                      {([null, 1800000, 3600000] as const).map((option) => (
+                      {AUTO_REFRESH_OPTIONS.map((option) => (
                         <button
                           className={`flex-1 rounded-full px-3 py-2 text-xs font-semibold transition ${
-                            autoRefreshInterval === option
+                            autoRefreshInterval === option.value
                               ? 'bg-slate-950 text-white dark:bg-sky-400 dark:text-slate-950'
                               : 'text-slate-700 hover:bg-white/40 dark:text-slate-300 dark:hover:bg-white/10'
                           }`}
-                          key={option ?? 'off'}
-                          onClick={() => setAutoRefreshInterval(option)}
+                          key={option.value ?? 'off'}
+                          onClick={() => setAutoRefreshInterval(option.value)}
                           type="button"
                         >
-                          {option === null ? 'Off' : option === 1800000 ? '30m' : '60m'}
+                          {option.label}
                         </button>
                       ))}
                     </div>

@@ -276,3 +276,80 @@ test('auto-refresh settings offer only cache-aligned intervals', async ({ page }
   await expect(page.getByRole('button', { name: '10m' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '15m' })).toHaveCount(0);
 });
+
+test('silent auto-refresh keeps last-good data and never unmounts the dashboard', async ({ page }) => {
+  await page.clock.install();
+
+  await page.unroute('**/api.open-meteo.com/v1/forecast**');
+
+  let forecastCalls = 0;
+  let shouldFailRefresh = false;
+  await page.route('**/api.open-meteo.com/v1/forecast**', async (route) => {
+    forecastCalls += 1;
+    const url = new URL(route.request().url());
+    const lat = Number(url.searchParams.get('latitude') ?? 0);
+    const lon = Number(url.searchParams.get('longitude') ?? 0);
+
+    if (shouldFailRefresh) {
+      await route.fulfill({ status: 500 });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(buildForecastResponse(lat, lon)),
+    });
+  });
+
+  await page.route('**/air-quality-api.open-meteo.com/v1/air-quality**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        current: { us_aqi: 42, pm2_5: 8, pm10: 15, ozone: 60 },
+      }),
+    });
+  });
+
+  await page.goto('/');
+
+  await expect(page.getByText('Hourly and Weekly Outlook')).toBeVisible();
+
+  await page.getByTitle('Settings').click();
+  await page.getByRole('button', { name: '30m' }).click();
+
+  const callsBeforeRefresh = forecastCalls;
+  shouldFailRefresh = true;
+  await page.clock.fastForward('30:00');
+
+  await expect.poll(() => forecastCalls).toBeGreaterThan(callsBeforeRefresh);
+  await expect(page.getByText('Hourly and Weekly Outlook')).toBeVisible();
+  await expect(page.getByText('Hourly Temperature')).toBeVisible();
+  await expect(page.getByText('Fetching the latest weather')).toHaveCount(0);
+  await expect(page.getByText(/Unable to|Failed/i)).toHaveCount(0);
+});
+
+test('reduced-motion renders a static background', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+
+  await expect(page.getByText('Hourly Temperature')).toBeVisible();
+  await expect(page.locator('.reduce-motion')).toHaveCount(1);
+
+  const running = await page.locator('.reduce-motion').evaluate((element) =>
+    Array.from(element.querySelectorAll('*')).filter((node) => node.getAnimations().length > 0).length
+  );
+  expect(running).toBe(0);
+});
+
+test('stale stored auto-refresh interval is normalized to 30m', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('weather-auto-refresh', JSON.stringify(300000));
+  });
+  await page.goto('/');
+
+  await expect(page.getByText('Hourly Temperature')).toBeVisible();
+  const stored = await page.evaluate(() => localStorage.getItem('weather-auto-refresh'));
+  expect(JSON.parse(stored ?? 'null')).toBe(1800000);
+});

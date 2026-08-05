@@ -31,7 +31,6 @@ export function AnimatedWeatherBackground({ condition }: AnimatedWeatherBackgrou
   const isClear = !isRain && !isSnow && !isStorm && !isCloudy;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particlesRef = useRef<Particle[]>([]);
   const frameRef = useRef(0);
   const [reduceMotion, setReduceMotion] = useState(() => getReducedMotionQuery().matches);
 
@@ -95,7 +94,6 @@ export function AnimatedWeatherBackground({ condition }: AnimatedWeatherBackgrou
         particles.push(particle);
       }
     }
-    particlesRef.current = particles;
 
     let lastTime = performance.now();
 
@@ -146,7 +144,6 @@ export function AnimatedWeatherBackground({ condition }: AnimatedWeatherBackgrou
     return () => {
       cancelAnimationFrame(frameRef.current);
       observer.disconnect();
-      particlesRef.current = [];
     };
   }, [isRain, isSnow, reduceMotion]);
 
