@@ -289,7 +289,9 @@ export function WeatherDashboard() {
       setAirQuality(data);
     } catch {
       // Air quality is non-critical, fail silently
-      setAirQuality(null);
+      if (!options?.silent) {
+        setAirQuality(null);
+      }
     } finally {
       if (!options?.silent) {
         setAirQualityLoading(false);
